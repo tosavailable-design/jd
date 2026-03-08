@@ -1,36 +1,34 @@
-name: Disk Speed Benchmark
+name: RAM Speed Benchmark
 on: [workflow_dispatch]
 
 jobs:
-  benchmark-disk:
+  benchmark-ram:
     runs-on: ubuntu-latest
     steps:
-      - name: Install FIO
-        run: sudo apt-get update && sudo apt-get install -y fio
+      - name: Install Tools
+        run: sudo apt-get update && sudo apt-get install -y fio sysbench
 
-      - name: 🚀 Test 1 - Sequential WRITE (Linear Speed)
+      - name: 📊 Check Specs (RAM Size)
         run: |
-          # Тест линейной записи (имитация скачивания большого файла)
-          # direct=1 отключает кэш оперативной памяти, чтобы тест был честным
-          echo "--- Sequential Write Speed ---"
-          fio --name=seq_write --ioengine=libaio --rw=write --bs=1M --size=1G --numjobs=1 --direct=1 --group_reporting
+          echo "--- RAM Info ---"
+          free -h
+          echo "--- /dev/shm Size ---"
+          df -h /dev/shm
 
-      - name: 🚀 Test 2 - Sequential READ (Linear Speed)
+      - name: 🚀 Test 1 - RAM Disk Write Speed (/dev/shm)
         run: |
-          # Тест линейного чтения
-          echo "--- Sequential Read Speed ---"
-          fio --name=seq_read --ioengine=libaio --rw=read --bs=1M --size=1G --numjobs=1 --direct=1 --group_reporting
+          # Тестируем скорость записи файла прямо в оперативную память
+          # Это покажет, как быстро можно работать с временными файлами
+          echo "--- Writing 2GB to RAM (/dev/shm) ---"
+          fio --name=ram_write --filename=/dev/shm/testfile --ioengine=libaio --rw=write --bs=1M --size=2G --numjobs=1 --direct=1 --group_reporting
+          rm /dev/shm/testfile
 
-      - name: ⚙️ Test 3 - Random Read/Write (IOPS)
+      - name: ⚡ Test 2 - Raw RAM Speed (Sysbench)
         run: |
-          # Тест случайного чтения/записи (имитация работы с кодом/компиляции)
-          # Блок 4k — стандарт для проверки IOPS
-          echo "--- Random 4k Read/Write ---"
-          fio --name=rand_rw --ioengine=libaio --rw=randrw --rwmixread=75 --bs=4k --size=512M --numjobs=1 --direct=1 --group_reporting
-
-      - name: 💾 Test 4 - Quick dd check
-        run: |
-          # Простая проверка через dd для сравнения
-          echo "--- DD Write Test ---"
-          dd if=/dev/zero of=testfile bs=1G count=1 oflag=direct
-          rm testfile
+          # Тест чистой пропускной способности памяти (Memory Bandwidth)
+          # Операции записи в блоках по 1КБ и 1МБ
+          echo "--- Sysbench Memory Test (1K block) ---"
+          sysbench memory --memory-block-size=1K --memory-total-size=100G run
+          
+          echo "--- Sysbench Memory Test (1M block) ---"
+          sysbench memory --memory-block-size=1M --memory-total-size=100G run
