@@ -1,1 +1,36 @@
+name: Disk Speed Benchmark
+on: [workflow_dispatch] # Запускаем вручную
 
+jobs:
+  benchmark-disk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install FIO
+        run: sudo apt-get update && sudo apt-get install -y fio
+
+      - name: 🚀 Test 1: Sequential WRITE (Linear Speed)
+        # Тест линейной записи (имитация скачивания большого файла)
+        # direct=1 отключает кэш оперативной памяти, чтобы тест был честным
+        run: |
+          echo "--- Sequential Write Speed ---"
+          fio --name=seq_write --ioengine=libaio --rw=write --bs=1M --size=1G --numjobs=1 --direct=1 --group_reporting
+
+      - name: 🚀 Test 2: Sequential READ (Linear Speed)
+        # Тест линейного чтения
+        run: |
+          echo "--- Sequential Read Speed ---"
+          fio --name=seq_read --ioengine=libaio --rw=read --bs=1M --size=1G --numjobs=1 --direct=1 --group_reporting
+
+      - name: ⚙️ Test 3: Random Read/Write (IOPS)
+        # Тест случайного чтения/записи (имитация работы с кодом/компиляции)
+        # Блок 4k — стандарт для проверки IOPS
+        run: |
+          echo "--- Random 4k Read/Write ---"
+          fio --name=rand_rw --ioengine=libaio --rw=randrw --rwmixread=75 --bs=4k --size=512M --numjobs=1 --direct=1 --group_reporting
+
+      - name: 💾 Test 4: Quick 'dd' check
+        # Простая проверка через dd для сравнения
+        run: |
+          echo "--- DD Write Test ---"
+          dd if=/dev/zero of=testfile bs=1G count=1 oflag=direct
+          rm testfile
